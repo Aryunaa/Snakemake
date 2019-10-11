@@ -1,0 +1,29 @@
+MY_PATH="opidata"
+DADA_d = "dada_denoised"
+
+
+
+
+rule denoise_and_summarise:
+	input:
+		MY_PATH + "/demux-paired-end.qza"
+	output:
+		MY_PATH + "/demux-paired-end.qzv"		
+	benchmark:
+		"benchmarks/denoise.tsv"
+	log: 
+		"logs/denoise.log"
+	threads:
+		4
+	shell:
+		"qiime demux summarize --i-data {input} --o-visualization {output} > {log}"
+
+rule import:
+	input:
+		"manifest"
+	output:
+		MY_PATH + "/demux-paired-end.qza"
+	log: 
+		"logs/import/import.log"
+	shell:
+		"qiime tools import --type 'SampleData[PairedEndSequencesWithQuality]' --input-path {input} --input-format PairedEndFastqManifestPhred33 --output-path {output} > {log}"

@@ -1,0 +1,76 @@
+TR = "trimmed/"
+QC = "qc/fastqc/"
+QC_after_Trim= "qc/trimmed"
+O  = "opidata/"
+
+"""Parse out target file wildcards."""
+import glob
+for name in glob.glob('opidata/*.fastq.gz'):
+    	print(name)
+
+print('another way')
+
+my_list=list(glob.glob('opidata/*_forward.fastq.gz'))
+for name in my_list:
+    	print(name)
+
+another_list =[]
+
+for name in my_list:
+	repl = name.replace('_forward.fastq.gz','')
+	repl = repl.replace(O,'')
+	another_list.append(repl)
+
+print('something has changed')
+
+for item in another_list:
+	print(item)
+
+"""Parse out target file wildcards."""
+
+rule all:
+	input:
+		expand('qc/trimmed/{sample}_revers.html', sample = another_list),
+		expand('qc/trimmed/{sample}_forward.html', sample = another_list)
+
+
+rule fastqc_revers:
+    	input:
+        	"trimmed/{sample}_revers.fastq.gz"
+    	output:
+        	html="qc/trimmed/{sample}_revers.html",
+        	zip="qc/trimmed/{sample}_revers_fastqc.zip",
+		
+    	params: ""
+    	log:
+        	"logs/fastqc/{sample}_revers.log"
+    	wrapper:
+        	"0.35.2/bio/fastqc"
+
+rule fastqc_forward:
+    	input:
+        	"trimmed/{sample}_forward.fastq.gz"
+    	output:
+        	html="qc/trimmed/{sample}_forward.html",
+        	zip="qc/trimmed/{sample}_forward_fastqc.zip",
+		
+    	params: ""
+    	log:
+        	"logs/fastqc/{sample}_forward.log"
+    	wrapper:
+        	"0.35.2/bio/fastqc"
+
+rule cutadapt:
+    	input:
+        	[O + "{sample}_forward.fastq.gz", O + "{sample}_revers.fastq.gz"]
+    	output:
+        	fastq1="trimmed/{sample}_forward.fastq.gz",
+        	fastq2="trimmed/{sample}_revers.fastq.gz",
+        	qc="trimmed/{sample}.qc.txt"
+    	params:
+        	"-A CTGTCTCTTATACACATCT -a CTGTCTCTTATACACATCT" 
+    	log:
+        	"logs/{sample}.log"
+	wrapper:
+		"0.35.2/bio/cutadapt/pe"
+

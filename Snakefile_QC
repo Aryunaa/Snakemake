@@ -1,0 +1,63 @@
+TR = "trimmed/"
+QC = "qc/fastqc/"
+O  = "opidata/"
+
+"""Parse out target file wildcards."""
+import glob
+for name in glob.glob('opidata/*.fastq.gz'):
+    	print(name)
+
+print('another way')
+
+my_list=list(glob.glob('opidata/*_forward.fastq.gz'))
+for name in my_list:
+    	print(name)
+
+another_list =[]
+
+for name in my_list:
+	repl = name.replace('_forward.fastq.gz','')
+	repl = repl.replace(O,'')
+	another_list.append(repl)
+
+print('something has changed')
+
+for item in another_list:
+	print(item)
+
+"""Parse out target file wildcards."""
+
+rule all:
+	input:
+		expand('qc/fastqc/{sample}_revers.html', sample = another_list),
+		expand('qc/fastqc/{sample}_forward.html', sample = another_list)
+
+
+rule fastqc_revers:
+    	input:
+        	O + "{sample}_revers.fastq.gz"
+    	output:
+        	html=QC + "{sample}_revers.html",
+        	zip=QC + "{sample}_revers_fastqc.zip",
+		
+    	params: ""
+    	log:
+        	"logs/fastqc/{sample}_revers.log"
+    	wrapper:
+        	"0.35.2/bio/fastqc"
+
+rule fastqc_forward:
+    	input:
+        	O + "{sample}_forward.fastq.gz"
+    	output:
+        	html=QC +"{sample}_forward.html",
+        	zip=QC +"{sample}_forward_fastqc.zip",
+		
+    	params: ""
+    	log:
+        	"logs/fastqc/{sample}_forward.log"
+    	wrapper:
+        	"0.35.2/bio/fastqc"
+
+
+

@@ -1,0 +1,79 @@
+
+DADA_d = "dada"
+Dbiom= DADA_d + "/biom_out"
+
+
+
+
+
+rule barplots:
+	input:	DADA_d + "/table.qza",
+		DADA_d + "/taxonomy.qza"
+	
+	output:	
+		DADA_d + "/barplots.qzv"
+	shell:
+		"qiime taxa barplot --i-table {input[0]} --i-taxonomy {input[1]} --o-visualization {output} --m-metadata-file metadata > {log}"
+
+#барплоты не вышли - там какого-то файла не хватает, поищи metadata!
+
+"""
+rule convert:
+	input:
+		Dbiom + "/feature-table_meta.biom"
+	output:
+		Dbiom + "/feature-table_meta.txt"
+	shell:
+		"biom convert -i {input} -o {output} --to-tsv --table-type='OTU table' --header-key taxonomy"
+
+rule sed_and_add_metadata:
+	input:
+		DADA_d + "/biom_out/feature-table.biom",
+		DADA_d + "/biom_out/taxonomy.tsv"
+	output:
+		Dbiom + "/feature-table_meta.biom",
+		Dbiom + "/sed_taxonomy.tsv"
+	log: 
+		"logs/add_metadata.log"
+	shell:
+		y
+
+		sed '1s/.*/#OTU ID\ttaxonomy\tConfidence/' {input[1]} > {output[1]}
+		biom add-metadata -i {input[0]} -o {output[0]} --observation-metadata-fp {output[1]} --sc-separated taxonomy
+		y
+
+
+
+	
+
+
+rule export_table_i_taxonomy:
+	input:
+		DADA_d + "/table.qza",
+		DADA_d + "/taxonomy.qza"
+	output:
+		directory(Dbiom)
+	log: 
+		"logs/export_table.log"
+	shell:
+		
+
+		qiime tools export --input-path {input[0]} --output-path {output} > {log}
+		qiime tools export --input-path {input[1]} --output-path {output} > {log}
+		
+
+
+rule biom:
+	input:
+		DADA_d + "/table.qza"	
+	output:
+		DADA_d + "/table_4050.qza"
+
+	log: 
+		"logs/export_taxonomy.log"
+		
+	shell:
+		"qiime feature-table rarefy --i-table {input} --p-sampling-depth 4050 --o-rarefied-table {output} > {log}"
+
+"""
+	
