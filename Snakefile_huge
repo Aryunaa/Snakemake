@@ -1,0 +1,126 @@
+MY_PATH="work"
+DADA_d = MY_PATH + "/dada_denoised"
+Dbiom= DADA_d + "/biom_out_rar_4050"
+
+rule sed_and_add_metadata:
+	input:
+		DADA_d + "/biom_out_rar_4050/feature-table.biom",
+		DADA_d + "/biom_out_rar_4050/taxonomy.tsv"
+	output:
+		Dbiom + "/feature-table_meta.biom",
+		Dbiom + "/sed_taxonomy.tsv"
+	log: 
+		"logs/add_metadata.log"
+	shell:
+		"""
+		
+		sed '1s/.*/#OTU ID\ttaxonomy\tConfidence/' {input[1]} > {output[1]}
+		biom add-metadata -i {input[0]} -o {output[0]} --observation-metadata-fp {output[1]} --sc-separated taxonomy
+		"""
+
+rule export_table_i_taxonomy_beta_diversity_visual_alpha_diversity_4050_and_10000_and_visualize_denoise_stats:
+	input:
+		DADA_d + "/table_4050.qza",
+		DADA_d + "/ordination.qza",
+		DADA_d + "/taxonomy.qza",
+		DADA_d + "/table.qza",
+		DADA_d + "/rooted-tree.qza",
+		DADA_d + "/denoising_stats.qza"
+	output:
+		directory(Dbiom),
+		DADA_d + "/biplot.qzv",
+		DADA_d + "/alpha-rarefaction_4050.qzv",
+		DADA_d + "/alpha-rarefaction_10000.qzv",
+		DADA_d + "/denoising_stats.qzv"	
+	log: 
+		"logs/export_table_alpha_and_beta-diversity.log"
+	shell:
+		"""
+
+		qiime tools export --input-path {input[0]} --output-path {output[0]} > {log}
+		qiime tools export --input-path {input[2]} --output-path {output[0]} > {log}
+		qiime emperor biplot --i-biplot {input[1]} --m-sample-metadata-file metadata --m-feature-metadata-file {input[2]} --o-visualization {output[1]} --p-number-of-features 8 > {log}
+		qiime diversity alpha-rarefaction --i-table {input[3]} --i-phylogeny {input[4]} --p-max-depth 4050 --m-metadata-file metadata --o-visualization {output[2]} > {log}
+		qiime diversity alpha-rarefaction --i-table {input[3]} --i-phylogeny {input[4]} --p-max-depth 10000 --m-metadata-file metadata --o-visualization {output[3]} > {log}
+		qiime metadata tabulate --m-input-file {input[5]} --o-visualization {output[4]} > {log}
+		"""
+
+rule rdp_visualization_and_taxonomy_visualize_and_beta_diversity_and_biom:
+	input:
+		DADA_d + "/table.qza",
+		DADA_d + "/taxonomy.qza"	
+	output:
+		DADA_d + "/table.qzv",
+		DADA_d + "/barplots.qzv",
+		DADA_d + "/taxonomy.qzv",
+		DADA_d + "/ordination.qza",
+		DADA_d + "/ait_distance.qza",
+		DADA_d + "/table_4050.qza"
+
+	log: 
+		"logs/export_taxonomy.log"
+		
+	shell:
+		"""
+
+		qiime feature-table summarize --i-table {input[0]} --o-visualization {output[0]} > {log}
+		qiime taxa barplot --i-table {input[0]} --i-taxonomy {input[1]} --o-visualization {output[1]} --m-metadata-file metadata > {log}
+		qiime metadata tabulate --m-input-file {input[1]} --o-visualization {output[2]} > {log}
+		qiime deicode rpca --i-table {input[0]} --p-min-feature-count 10 --o-biplot {output[3]} --o-distance-matrix {output[4]} > {log}
+		qiime feature-table rarefy --i-table {input[0]} --p-sampling-depth 4050 --o-rarefied-table {output[5]} > {log}
+		"""
+
+rule rdp_classifier_and_tree:
+	input:
+		DADA_d + "/representative_sequences.qza"
+	output:
+		DADA_d + "/taxonomy.qza",
+		DADA_d + "/representative_sequences.qzv",
+		DADA_d + "/aligned-rep-seqs.qza",
+		DADA_d + "/masked-aligned-rep-seqs.qza",
+		DADA_d + "/unrooted-tree.qza",
+		DADA_d + "/rooted-tree.qza"
+	log: 
+		"logs/rdp_classifier_slam_mix1_tree.log"
+	benchmark:
+		"benchmarks/rdp_classifier_and_tree.tsv"
+	threads:
+		4
+	shell:
+		"""
+
+		qiime feature-classifier classify-sklearn --i-classifier classifier.qza --i-reads {input} --o-classification {output[0]} > {log}
+		qiime feature-table tabulate-seqs --i-data {input} --o-visualization {output[1]}  > {log}
+		qiime phylogeny align-to-tree-mafft-fasttree --i-sequences {input} --o-alignment {output[2]} --o-masked-alignment {output[3]} --o-tree {output[4]} --o-rooted-tree {output[5]} > {log}
+		"""
+
+rule denoise_and_summarise:
+	input:
+		MY_PATH + "/demux-paired-end.qza"
+	output:
+		DADA_d + "/table.qza",
+		DADA_d + "/representative_sequences.qza",
+		DADA_d + "/denoising_stats.qza",
+		MY_PATH + "/demux-paired-end.qzv"		
+	benchmark:
+		"benchmarks/denoise.tsv"
+	log: 
+		"logs/denoise.log"
+	threads:
+		8
+	shell:
+		"""
+		
+		qiime dada2 denoise-paired --i-demultiplexed-seqs {input} --p-trim-left-f 0 --p-trim-left-r 0 --p-trunc-len-f 140 --p-trunc-len-r 140 --p-n-threads {threads}  --o-table {output[0]} --o-representative-sequences {output[1]} --o-denoising-stats {output[2]} > {log}
+		qiime demux summarize --i-data {input} --o-visualization {output[3]} > {log}
+		"""
+
+rule import:
+	input:
+		MY_PATH
+	output:
+		MY_PATH + "/demux-paired-end.qza"
+	log: 
+		"logs/import.log"
+	shell:
+		"qiime tools import --type 'SampleData[PairedEndSequencesWithQuality]' --input-path {input} --input-format CasavaOneEightSingleLanePerSampleDirFmt --output-path {output} > {log}"
